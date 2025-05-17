@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 export default function App() {
   /* ------------------------- 状态 ------------------------- */
   const [rawStrokes, setRawStrokes] = useState([]); // 原始 JSON
-  const [interpMethod, setInterpMethod] = useState("catmull");
+  const [interpMethod, setInterpMethod] = useState("none");
   const [density, setDensity] = useState(2);
 
   const [filterEnabled, setFilterEnabled] = useState(false);
@@ -44,7 +44,7 @@ export default function App() {
   const [penUpZ, setPenUpZ] = useState(-22);
 
   const [gStart, setGStart] = useState("G21\nG90\n");
-  const [gEnd, setGEnd] = useState("G0 Z0\nG0 X0 Y0\n");
+  const [gEnd, setGEnd] = useState("G00 Z0\nG00 X0 Y0\n");
 
   const [gcode, setGcode] = useState("");
   const [hasPreview, setHasPreview] = useState(false);
@@ -155,9 +155,8 @@ export default function App() {
   // 处理后的笔画（插值+滤波）
   const processStrokes = useCallback(() => {
     return rawStrokes.map((stroke) => {
-      let interp = interpolate(stroke);
-      if (filterEnabled) interp = smoothStroke(interp, filterWindow);
-      return interp;
+      if (filterEnabled) stroke = smoothStroke(stroke, filterWindow);
+      return interpolate(stroke);
     });
   }, [rawStrokes, interpolate, filterEnabled, filterWindow]);
 
@@ -172,13 +171,13 @@ export default function App() {
           const Y = (y * scale + yOff).toFixed(3);
           const Z = (penDownZ + w2z(w)).toFixed(3);
           if (idx === 0) {
-            gc += `G0 X${X} Y${Y} F${feed}\n`;
-            gc += `G1 Z${Z} F${feed}\n`;
+            gc += `G00 X${X} Y${Y} F${feed}\n`;
+            gc += `G01 Z${Z} F${feed}\n`;
           } else {
             gc += `G01 X${X} Y${Y} Z${Z} F${feed}\n`;
           }
         });
-        gc += `G0 Z${penUpZ}\n`;
+        gc += `G00 Z${penUpZ}\n`;
       });
       gc += gEnd.replace(/\r?\n/g, "\n");
       return gc;
@@ -357,6 +356,26 @@ export default function App() {
               <Input type="file" accept="application/json" onChange={handleFile} />
             </div>
 
+            {/* 低通滤波 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="font-medium mb-1 block">低通滤波</label>
+                <Select value={filterEnabled ? "on" : "off"} onValueChange={v => setFilterEnabled(v === "on")}>
+                  <SelectTrigger className="w-full rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="off">关闭</SelectItem>
+                    <SelectItem value="on">开启</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="font-medium mb-1 block">滤波窗口</label>
+                <Input type="number" step={1} min={1} value={filterWindow} onChange={e => setFilterWindow(+e.target.value)} />
+              </div>
+            </div>
+
             {/* Interpolation */}
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-1">
@@ -375,26 +394,6 @@ export default function App() {
               <div>
                 <label className="font-medium mb-1 block">密度 (点/mm)</label>
                 <Input type="number" step="0.1" value={density} onChange={(e) => setDensity(+e.target.value)} />
-              </div>
-            </div>
-
-            {/* 低通滤波 */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="font-medium mb-1 block">低通滤波</label>
-                <Select value={filterEnabled ? "on" : "off"} onValueChange={v => setFilterEnabled(v === "on")}>
-                  <SelectTrigger className="w-full rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="off">关闭</SelectItem>
-                    <SelectItem value="on">开启</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="font-medium mb-1 block">滤波窗口</label>
-                <Input type="number" step={1} min={1} value={filterWindow} onChange={e => setFilterWindow(+e.target.value)} />
               </div>
             </div>
 
