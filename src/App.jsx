@@ -11,6 +11,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { ThemeProvider } from "@/components/theme-provider"
+import { ModeToggle } from "@/components/mode-toggle"
+
 /**
  * JSON → G‑Code Converter (with Filtering & Display Mode)
  * -------------------------------------------------------
@@ -200,9 +203,11 @@ export default function App() {
         ctx.lineCap = "round";
         ctx.lineWidth = 1 / zoom;
         ctx.strokeStyle = "#1f2937";
+        console.log(strokes);
         strokes.forEach((stroke) => {
           ctx.beginPath();
-          stroke.forEach(([x, y], idx) => {
+          stroke.forEach(([x, y, w], idx) => {
+            ctx.lineWidth = w;
             idx ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
           });
           ctx.stroke();
@@ -343,13 +348,16 @@ export default function App() {
 
   /* ------------------------- UI ------------------------- */
   return (
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
     <div className="min-h-screen bg-gradient-to-br from-sky-50 to-emerald-50 dark:from-neutral-900 dark:to-neutral-800 p-6 text-neutral-900 dark:text-neutral-100 space-y-6">
-      <h1 className="text-3xl font-bold">JSON → G‑Code Converter</h1>
+      <h1 className="text-3xl font-bold">G‑Code编辑器</h1>
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* 控制面板 */}
         <Card className="shadow-xl dark:bg-neutral-800">
           <CardContent className="space-y-6 pt-6">
+            <ModeToggle></ModeToggle>
+
             {/* File */}
             <div className="space-y-2">
               <label className="font-medium">上传原始 JSON</label>
@@ -457,6 +465,7 @@ export default function App() {
         </div>
       </div>
     </div>
+    </ThemeProvider>
   );
 }
 
