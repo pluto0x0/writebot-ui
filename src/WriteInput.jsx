@@ -1,10 +1,4 @@
-// src/WriteInput.tsx
-import React, {
-  useRef,
-  useState,
-  useEffect,
-  PointerEvent,
-} from "react";
+import { useRef, useState, useEffect } from "react";
 import { io } from "socket.io-client";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -21,29 +15,24 @@ const socket = io("http://localhost:3000", {
   path: "/socket.io",
 });
 
-interface Sample {
-  char: string;
-  image: string; // base64 PNG
-}
-
 export default function WriteInput() {
   // 画布 refs & ctx
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [ctx, setCtx] = useState<CanvasRenderingContext2D | null>(null);
+  const canvasRef = useRef(null);
+  const [ctx, setCtx] = useState(null);
 
   // 书写状态
   const [drawing, setDrawing] = useState(false);
-  const [currentStroke, setCurrentStroke] = useState<
-    { x: number; y: number; w: number }[]
-  >([]);
+  const [currentStroke, setCurrentStroke] = useState([]);
 
   // 已采集样本
-  const [samples, setSamples] = useState<Sample[]>([]);
+  const [samples, setSamples] = useState([]);
   const [showCharPrompt, setShowCharPrompt] = useState(false);
   const [charInput, setCharInput] = useState("");
 
   // API & 文本
-  const [apiUrl, setApiUrl] = useState(() => localStorage.getItem("apiUrl")||"");
+  const [apiUrl, setApiUrl] = useState(
+    () => localStorage.getItem("apiUrl") || ""
+  );
   const [customText, setCustomText] = useState("");
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -55,14 +44,12 @@ export default function WriteInput() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    // 放大画写区域
     canvas.width = 500;
     canvas.height = 500;
     const context = canvas.getContext("2d");
     if (!context) return;
     context.lineCap = "round";
     context.lineJoin = "round";
-    // 白底
     context.fillStyle = "#fff";
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.strokeStyle = "#000";
@@ -75,7 +62,7 @@ export default function WriteInput() {
   }, [apiUrl]);
 
   // pointer 事件
-  const handlePointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
+  const handlePointerDown = (e) => {
     if (!ctx) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -88,7 +75,7 @@ export default function WriteInput() {
     setDrawing(true);
   };
 
-  const handlePointerMove = (e: PointerEvent<HTMLCanvasElement>) => {
+  const handlePointerMove = (e) => {
     if (!drawing || !ctx) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -103,21 +90,27 @@ export default function WriteInput() {
   const handlePointerUp = () => {
     if (!drawing) return;
     setDrawing(false);
-    ctx?.closePath();
-    setShowCharPrompt(true);
+    if (ctx) ctx.closePath();
+    // setShowCharPrompt(true);
   };
 
   // 自动裁剪黑色笔迹区域
-  function cropToInk(): HTMLCanvasElement {
-    const orig = canvasRef.current!;
-    const w = orig.width, h = orig.height;
-    const imgData = ctx!.getImageData(0, 0, w, h).data;
-    let minX = w, maxX = 0, minY = h, maxY = 0, found = false;
+  function cropToInk() {
+    const orig = canvasRef.current;
+    const w = orig.width,
+      h = orig.height;
+    const imgData = ctx.getImageData(0, 0, w, h).data;
+    let minX = w,
+      maxX = 0,
+      minY = h,
+      maxY = 0,
+      found = false;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const idx = (y * w + x) * 4;
-        const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
-        // 非白即视为笔迹
+        const r = imgData[idx],
+          g = imgData[idx + 1],
+          b = imgData[idx + 2];
         if (!(r === 255 && g === 255 && b === 255)) {
           found = true;
           minX = Math.min(minX, x);
@@ -128,22 +121,23 @@ export default function WriteInput() {
       }
     }
     if (!found) {
-      // 没有笔迹，返回全画布
-      minX = 0; minY = 0; maxX = w; maxY = h;
+      minX = 0;
+      minY = 0;
+      maxX = w;
+      maxY = h;
     }
-    // 裁剪区域
     const cw = maxX - minX + 1;
     const ch = maxY - minY + 1;
+    const window = Math.max(cw, ch);
+    minX = Math.max(0, minX - (window - cw) / 2);
+    minY = Math.max(0, minY - (window - ch) / 2);
     const off = document.createElement("canvas");
     off.width = 128;
     off.height = 128;
-    const octx = off.getContext("2d")!;
+    const octx = off.getContext("2d");
     octx.fillStyle = "#fff";
     octx.fillRect(0, 0, 128, 128);
-    octx.drawImage(orig,
-      minX, minY, cw, ch,
-      0, 0, 128, 128
-    );
+    octx.drawImage(orig, minX, minY, window, window, 0, 0, 128, 128);
     return off;
   }
 
@@ -155,10 +149,11 @@ export default function WriteInput() {
     setSamples((s) => [...s, { char: charInput.trim(), image: img }]);
     setCharInput("");
     setShowCharPrompt(false);
-    // 清空画布
-    ctx!.fillStyle = "#fff";
-    ctx!.fillRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
-    ctx!.fillStyle = "#000";
+    if (ctx && canvasRef.current) {
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      ctx.fillStyle = "#000";
+    }
     setCurrentStroke([]);
   };
 
@@ -189,11 +184,12 @@ export default function WriteInput() {
       socket.emit("submitData", result);
       setProgress(100);
 
-      // 提交后清空样本 & 画布
       setSamples([]);
-      ctx!.fillStyle = "#fff";
-      ctx!.fillRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
-      ctx!.fillStyle = "#000";
+      if (ctx && canvasRef.current) {
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        ctx.fillStyle = "#000";
+      }
       setCustomText("");
     } catch (err) {
       console.error(err);
@@ -209,32 +205,87 @@ export default function WriteInput() {
           <h1 className="text-3xl font-bold">手写输入采集</h1>
           <ModeToggle />
         </div>
-
         <div className="flex space-x-8">
-          {/* 写字区域 */}
-          <Card className="flex-shrink-0">
-            <CardContent className="p-4">
-              <canvas
-                ref={canvasRef}
-                className="border w-[500px] h-[500px] touch-none"
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerLeave={handlePointerUp}
-              />
-              <Button
-                className="mt-4"
-                variant="secondary"
-                disabled={drawing || showCharPrompt}
-                onClick={() => setShowCharPrompt(true)}
-              >
-                完成此字
-              </Button>
-            </CardContent>
-          </Card>
+          {/* 左边：纵向堆叠 */}
+          <div className="flex flex-col space-y-8 flex-1 max-w-[550px]">
+            {/* 写字区域 */}
+            <Card className="flex-shrink-0">
+              <CardContent className="p-4">
+                <canvas
+                  ref={canvasRef}
+                  className="border w-[500px] h-[500px] touch-none"
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerLeave={handlePointerUp}
+                />
+                <Button
+                  className="mt-4"
+                  variant="secondary"
+                  disabled={drawing || showCharPrompt}
+                  onClick={() => setShowCharPrompt(true)}
+                >
+                  完成此字
+                </Button>
+              </CardContent>
+            </Card>
 
-          {/* 缩略图列表 */}
-          <div className="space-y-4 flex-1 overflow-auto">
+            {/* 字符标注弹窗 */}
+            {showCharPrompt && (
+              <Card className="max-w-sm mx-auto mt-6">
+                <CardContent className="space-y-3">
+                  <Label>请输入该字对应的字符</Label>
+                  <Input
+                    value={charInput}
+                    onChange={(e) => setCharInput(e.target.value)}
+                    maxLength={1}
+                  />
+                  <div className="flex justify-end">
+                    <Button onClick={handleSaveChar}>保存</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* API & 文本 */}
+            {allDone && (
+              <Card className="w-full mx-auto mt-6 space-y-3">
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>API 地址</Label>
+                    <Input
+                      placeholder="https://your.api/endpoint"
+                      value={apiUrl}
+                      onChange={(e) => setApiUrl(e.target.value)}
+                      disabled={isBusy}
+                    />
+                  </div>
+                  <div>
+                    <Label>自定义文本</Label>
+                    <Textarea
+                      placeholder="请输入要分析的文本"
+                      value={customText}
+                      onChange={(e) => setCustomText(e.target.value)}
+                      disabled={isBusy}
+                    />
+                  </div>
+                  {sending && <Progress value={progress} max={100} />}
+                  <div className="flex justify-end">
+                    <Button
+                      variant="primary"
+                      onClick={handleSubmitAll}
+                      disabled={isBusy}
+                    >
+                      提交并生成
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* 右边：缩略图列表 */}
+          <div className="flex-1 overflow-auto space-y-4">
             <h2 className="text-xl font-medium">已采集 ({samples.length}/4)</h2>
             <ul className="grid grid-cols-2 gap-4">
               {samples.map((s, i) => (
@@ -248,59 +299,6 @@ export default function WriteInput() {
             </ul>
           </div>
         </div>
-
-        {/* 字符标注弹窗 */}
-        {showCharPrompt && (
-          <Card className="max-w-sm mx-auto mt-6">
-            <CardContent className="space-y-4">
-              <Label>请输入该字对应的字符</Label>
-              <Input
-                value={charInput}
-                onChange={(e) => setCharInput(e.target.value)}
-                maxLength={1}
-              />
-              <div className="flex justify-end">
-                <Button onClick={handleSaveChar}>保存</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* API & 文本 */}
-        {allDone && (
-          <Card className="max-w-lg mx-auto mt-6 space-y-4">
-            <CardContent className="space-y-4">
-              <div>
-                <Label>API 地址</Label>
-                <Input
-                  placeholder="https://your.api/endpoint"
-                  value={apiUrl}
-                  onChange={(e) => setApiUrl(e.target.value)}
-                  disabled={isBusy}
-                />
-              </div>
-              <div>
-                <Label>自定义文本</Label>
-                <Textarea
-                  placeholder="请输入要分析的文本"
-                  value={customText}
-                  onChange={(e) => setCustomText(e.target.value)}
-                  disabled={isBusy}
-                />
-              </div>
-              {sending && <Progress value={progress} max={100} />}
-              <div className="flex justify-end">
-                <Button
-                  variant="primary"
-                  onClick={handleSubmitAll}
-                  disabled={isBusy}
-                >
-                  提交并生成
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </ThemeProvider>
   );

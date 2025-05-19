@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, use } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { ModeToggle } from "@/components/mode-toggle";
-import { io } from 'socket.io-client'
+import { io } from "socket.io-client";
+import { Label } from "@radix-ui/react-dropdown-menu";
 
 /**
  * JSON → G‑Code Converter (with Filtering & Display Mode)
@@ -36,13 +37,13 @@ export default function App() {
   const [filterEnabled, setFilterEnabled] = useState(false);
   const [filterWindow, setFilterWindow] = useState(5);
 
-  const [xOff, setXOff] = useState(0);
-  const [yOff, setYOff] = useState(0);
+  const [xOff, setXOff] = useState(30);
+  const [yOff, setYOff] = useState(20);
   const [scale, setScale] = useState(1);
 
   const [zMin, setZMin] = useState(-0.4);
   const [zMax, setZMax] = useState(0.4);
-  const [wMax, setWMax] = useState(6);
+  // const [wMax, setWMax] = useState(6);
 
   const [penDownZ, setPenDownZ] = useState(-24.4);
   const [penUpZ, setPenUpZ] = useState(-22);
@@ -58,10 +59,11 @@ export default function App() {
   /* ------------------------- Socket ------------------------- */
   // const socket = io('http://localhost:3000')
   // 只用 websocket，跳过 polling
-  const socket = io('http://localhost:3000', {
-    transports: ['websocket'],
-    path: '/socket.io',
-  })
+  const socket = io("http://localhost:3000", {
+    transports: ["websocket"],
+    path: "/socket.io",
+  });
+  const [hasSocket, setHasSocket] = useState(false);
 
   /* ----------------------- Canvas refs ----------------------- */
   const canvasRef = useRef(null);
@@ -159,8 +161,11 @@ export default function App() {
 
   // Z, W 映射
   const w2z = useCallback(
-    (w) => zMin + ((zMax - zMin) * w) / wMax,
-    [zMin, zMax, wMax]
+    // (w) => zMin + ((zMax - zMin) * w) / wMax,
+    (w) => {
+      return zMin + ((zMax - zMin) * (w - 2)) / 4;
+    },
+    [zMin, zMax]
   );
 
   // 处理后的笔画（插值+滤波）
@@ -207,6 +212,7 @@ export default function App() {
       ctx.translate(pan.x, pan.y);
       ctx.scale(zoom, zoom);
 
+      /*
       const theme = localStorage.getItem("vite-ui-theme");
       const actualtheme =
         theme === "system"
@@ -214,11 +220,16 @@ export default function App() {
             ? "dark"
             : "light"
           : theme;
+      */
+
+      ctx.fillStyle = "#f8f8f8";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
       if (displayMode === "processed") {
-        const color = actualtheme === "dark" ? "#fff" : "#000";
+        /* const color = actualtheme === "dark" ? "#fff" : "#000"; */
         ctx.lineCap = "round";
         ctx.lineWidth = 1 / zoom;
-        ctx.strokeStyle = color;
+        ctx.strokeStyle = "#222";
         strokes.forEach((stroke) => {
           ctx.beginPath();
           stroke.forEach(([x, y, w], idx) => {
@@ -260,7 +271,7 @@ export default function App() {
   /* ------------------- 文件上传 ------------------- */
   const loadRawStrokes = useCallback((data) => {
     if (!Array.isArray(data)) {
-      console.warn("收到数据不是数组，无法加载笔画");
+      console.warn("Wrong stroke format");
       return;
     }
     setRawStrokes(data);
@@ -277,7 +288,7 @@ export default function App() {
       const data = JSON.parse(txt);
       loadRawStrokes(data);
     } catch (err) {
-      alert("解析失败: " + err.message);
+      alert("Fail to load " + err.message);
     }
   };
 
@@ -292,6 +303,7 @@ export default function App() {
         // 或者直接当作原始笔画数组
         loadRawStrokes(data);
       }
+      setHasSocket(true);
     });
     return () => {
       socket.off("newData");
@@ -312,7 +324,7 @@ export default function App() {
   /* ------------------- 发送 API ------------------- */
   const handleSend = async () => {
     const api = ""; // TODO: 填写 API
-    if (!api) return alert("API 地址未配置");
+    if (!api) return alert("API not assigned");
     try {
       const res = await fetch(api, {
         method: "POST",
@@ -395,7 +407,6 @@ export default function App() {
     scale,
     zMin,
     zMax,
-    wMax,
     penDownZ,
     penUpZ,
     gStart,
@@ -409,27 +420,45 @@ export default function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <div className="min-h-screen bg-gradient-to-br from-sky-50 to-emerald-50 dark:from-neutral-900 dark:to-neutral-800 p-6 text-neutral-900 dark:text-neutral-100 space-y-6">
-        <h1 className="text-3xl font-bold">G‑Code编辑器</h1>
-        <ModeToggle></ModeToggle>
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-3xl font-bold">G‑Code Editor</h1>
+          <ModeToggle />
+        </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* 控制面板 */}
           <Card className="shadow-xl dark:bg-neutral-800">
             <CardContent className="space-y-6 pt-6">
               {/* File */}
-              <div className="space-y-2">
-                <label className="font-medium">上传原始 JSON</label>
-                <Input
-                  type="file"
-                  accept="application/json"
-                  onChange={handleFile}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="font-medium">Upload JSON</label>
+                  <Input
+                    type="file"
+                    accept="application/json"
+                    onChange={handleFile}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="font-medium">Read from Write Pad</label>
+                  {/* displays HasSocket status */}
+                  <Textarea
+                    className="text-sm text-neutral-500"
+                    readOnly
+                    style={{ maxHeight: "3cm", overflowY: "auto" }}
+                    value={
+                      rawStrokes.length
+                        ? JSON.stringify(rawStrokes, null, 2)
+                        : ""
+                    }
+                  />
+                </div>
               </div>
-
-              {/* 低通滤波 */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="font-medium mb-1 block">低通滤波</label>
+                  <label className="font-medium mb-1 block">
+                    Low-pass Filter
+                  </label>
                   <Select
                     value={filterEnabled ? "on" : "off"}
                     onValueChange={(v) => setFilterEnabled(v === "on")}
@@ -438,13 +467,13 @@ export default function App() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="off">关闭</SelectItem>
-                      <SelectItem value="on">开启</SelectItem>
+                      <SelectItem value="off">Off</SelectItem>
+                      <SelectItem value="on">On</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <label className="font-medium mb-1 block">滤波窗口</label>
+                  <label className="font-medium mb-1 block">Window</label>
                   <Input
                     type="number"
                     step={1}
@@ -458,20 +487,24 @@ export default function App() {
               {/* Interpolation */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-1">
-                  <label className="font-medium mb-1 block">插值方法</label>
+                  <label className="font-medium mb-1 block">
+                    Interpolation
+                  </label>
                   <Select value={interpMethod} onValueChange={setInterpMethod}>
                     <SelectTrigger className="w-full rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">无</SelectItem>
-                      <SelectItem value="linear">线性</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="linear">Linear</SelectItem>
                       <SelectItem value="catmull">Catmull‑Rom</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <label className="font-medium mb-1 block">密度 (点/mm)</label>
+                  <label className="font-medium mb-1 block">
+                    Density (points/mm)
+                  </label>
                   <Input
                     type="number"
                     step="0.1"
@@ -484,11 +517,11 @@ export default function App() {
               {/* 坐标变换 */}
               <details className="rounded-xl border p-4">
                 <summary className="font-medium cursor-pointer">
-                  坐标变换与 Z‑W 关系
+                  Radius-Z transformations
                 </summary>
                 <div className="grid grid-cols-2 gap-4 mt-4">
-                  <InputField label="X 偏移" value={xOff} setValue={setXOff} />
-                  <InputField label="Y 偏移" value={yOff} setValue={setYOff} />
+                  <InputField label="X Offset (mm)" value={xOff} setValue={setXOff} />
+                  <InputField label="Y Offset (mm)" value={yOff} setValue={setYOff} />
                   <InputField
                     label="缩放"
                     value={scale}
@@ -496,43 +529,43 @@ export default function App() {
                     setValue={setScale}
                   />
                   <InputField
-                    label="Z(min) w=0"
+                    label="ΔZ @ Rmin=2mm"
                     value={zMin}
                     setValue={setZMin}
                     step={0.01}
                   />
                   <InputField
-                    label="Z(max) w=max"
+                    label="ΔZ @ Rmax=6mm"
                     value={zMax}
                     setValue={setZMax}
                     step={0.01}
                   />
-                  <InputField label="w 最大" value={wMax} setValue={setWMax} />
+                  {/* <InputField label="w 最大" value={wMax} setValue={setWMax} /> */}
                 </div>
               </details>
 
               {/* G‑code blocks */}
               <div className="grid gap-4">
                 <TextareaField
-                  label="起始 G‑Code"
+                  label="Custom G‑Code Prefix"
                   value={gStart}
                   setValue={setGStart}
                   rows={3}
                 />
                 <InputField
-                  label="笔落 Z"
+                  label="Pen up Z"
                   value={penDownZ}
                   setValue={setPenDownZ}
                   step={0.01}
                 />
                 <InputField
-                  label="笔起 Z"
+                  label="Pen down Z"
                   value={penUpZ}
                   setValue={setPenUpZ}
                   step={0.01}
                 />
                 <TextareaField
-                  label="结束 G‑Code"
+                  label="Custom G‑Code Suffix"
                   value={gEnd}
                   setValue={setGEnd}
                   rows={2}
@@ -541,14 +574,14 @@ export default function App() {
 
               {/* 显示模式 */}
               <div>
-                <label className="font-medium mb-1 block">显示模式</label>
+                <label className="font-medium mb-1 block">Dispaly Mode</label>
                 <Select value={displayMode} onValueChange={setDisplayMode}>
                   <SelectTrigger className="w-full rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="processed">预处理线条</SelectItem>
-                    <SelectItem value="gcode">G‑Code 路径</SelectItem>
+                    <SelectItem value="processed">Processed Lines</SelectItem>
+                    <SelectItem value="gcode">G‑Code</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -560,14 +593,14 @@ export default function App() {
                   disabled={!hasPreview}
                   onClick={handleSave}
                 >
-                  保存 G‑Code
+                  Save G‑Code
                 </Button>
                 <Button
                   variant="secondary"
                   disabled={!hasPreview}
                   onClick={handleSend}
                 >
-                  发送到 API
+                  Send G-Code
                 </Button>
               </div>
             </CardContent>
@@ -575,7 +608,7 @@ export default function App() {
 
           {/* Canvas */}
           <div className="space-y-2">
-            <h2 className="text-xl font-medium">实时预览</h2>
+            <h2 className="text-xl font-medium">Real-Time Preview</h2>
             <div
               ref={wrapperRef}
               className="border rounded-2xl shadow-inner bg-white dark:bg-neutral-800 overflow-auto h-[70vh]"
@@ -587,7 +620,9 @@ export default function App() {
                 className="block mx-auto"
               />
             </div>
-            <p className="text-sm text-neutral-500">滚轮缩放，拖拽平移</p>
+            <p className="text-sm text-neutral-500">
+              Scroll to zoom, drag to pan
+            </p>
           </div>
         </div>
       </div>
