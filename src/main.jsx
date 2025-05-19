@@ -14,7 +14,7 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<App />} />
-        <Route path="/write-input" element={<WriteInput />} />
+        <Route path="/write" element={<WriteInput />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
