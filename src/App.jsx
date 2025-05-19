@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-import { ThemeProvider } from "@/components/theme-provider"
-import { ModeToggle } from "@/components/mode-toggle"
+import { ThemeProvider } from "@/components/theme-provider";
+import { ModeToggle } from "@/components/mode-toggle";
 
 /**
  * JSON → G‑Code Converter (with Filtering & Display Mode)
@@ -74,11 +74,7 @@ export default function App() {
       const steps = Math.max(2, Math.floor(dist * dens));
       for (let j = 0; j < steps; j++) {
         const t = j / (steps - 1);
-        out.push([
-          x0 + (x1 - x0) * t,
-          y0 + (y1 - y0) * t,
-          w0 + (w1 - w0) * t,
-        ]);
+        out.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, w0 + (w1 - w0) * t]);
       }
     }
     return out;
@@ -120,7 +116,10 @@ export default function App() {
     if (pts.length <= 2 || windowSize <= 1) return pts;
     const out = [];
     for (let i = 0; i < pts.length; ++i) {
-      let sx = 0, sy = 0, sw = 0, n = 0;
+      let sx = 0,
+        sy = 0,
+        sw = 0,
+        n = 0;
       for (
         let j = -Math.floor(windowSize / 2);
         j <= Math.floor(windowSize / 2);
@@ -199,11 +198,18 @@ export default function App() {
       ctx.translate(pan.x, pan.y);
       ctx.scale(zoom, zoom);
 
+      const theme = localStorage.getItem("vite-ui-theme");
+      const actualtheme =
+        theme === "system"
+          ? window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light"
+          : theme;
       if (displayMode === "processed") {
+        const color = actualtheme === "dark" ? "#fff" : "#000";
         ctx.lineCap = "round";
         ctx.lineWidth = 1 / zoom;
-        ctx.strokeStyle = "#1f2937";
-        console.log(strokes);
+        ctx.strokeStyle = color;
         strokes.forEach((stroke) => {
           ctx.beginPath();
           stroke.forEach(([x, y, w], idx) => {
@@ -218,10 +224,13 @@ export default function App() {
         ctx.lineWidth = 1 / zoom;
         let lastPos = null;
         for (const line of gcodeLines) {
-          const m = line.match(/^(G0*([01]))\s+X(-?\d+\.?\d*)\s+Y(-?\d+\.?\d*)/i);
+          const m = line.match(
+            /^(G0*([01]))\s+X(-?\d+\.?\d*)\s+Y(-?\d+\.?\d*)/i
+          );
           if (m) {
             const G = m[2];
-            const x = +m[3], y = +m[4];
+            const x = +m[3],
+              y = +m[4];
             if (lastPos) {
               ctx.beginPath();
               ctx.moveTo(lastPos[0], lastPos[1]);
@@ -309,7 +318,10 @@ export default function App() {
     };
     const move = (e) => {
       if (!isPanning.current) return;
-      setPan({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y });
+      setPan({
+        x: e.clientX - panStart.current.x,
+        y: e.clientY - panStart.current.y,
+      });
     };
     const up = () => (isPanning.current = false);
 
@@ -341,130 +353,211 @@ export default function App() {
     }
     // eslint-disable-next-line
   }, [
-    rawStrokes, interpolate, filterEnabled, filterWindow,
-    xOff, yOff, scale, zMin, zMax, wMax, penDownZ, penUpZ,
-    gStart, gEnd, zoom, pan, displayMode
+    rawStrokes,
+    interpolate,
+    filterEnabled,
+    filterWindow,
+    xOff,
+    yOff,
+    scale,
+    zMin,
+    zMax,
+    wMax,
+    penDownZ,
+    penUpZ,
+    gStart,
+    gEnd,
+    zoom,
+    pan,
+    displayMode,
   ]);
 
   /* ------------------------- UI ------------------------- */
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-emerald-50 dark:from-neutral-900 dark:to-neutral-800 p-6 text-neutral-900 dark:text-neutral-100 space-y-6">
-      <h1 className="text-3xl font-bold">G‑Code编辑器</h1>
+      <div className="min-h-screen bg-gradient-to-br from-sky-50 to-emerald-50 dark:from-neutral-900 dark:to-neutral-800 p-6 text-neutral-900 dark:text-neutral-100 space-y-6">
+        <h1 className="text-3xl font-bold">G‑Code编辑器</h1>
+        <ModeToggle></ModeToggle>
 
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* 控制面板 */}
-        <Card className="shadow-xl dark:bg-neutral-800">
-          <CardContent className="space-y-6 pt-6">
-            <ModeToggle></ModeToggle>
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* 控制面板 */}
+          <Card className="shadow-xl dark:bg-neutral-800">
+            <CardContent className="space-y-6 pt-6">
+              {/* File */}
+              <div className="space-y-2">
+                <label className="font-medium">上传原始 JSON</label>
+                <Input
+                  type="file"
+                  accept="application/json"
+                  onChange={handleFile}
+                />
+              </div>
 
-            {/* File */}
-            <div className="space-y-2">
-              <label className="font-medium">上传原始 JSON</label>
-              <Input type="file" accept="application/json" onChange={handleFile} />
-            </div>
+              {/* 低通滤波 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="font-medium mb-1 block">低通滤波</label>
+                  <Select
+                    value={filterEnabled ? "on" : "off"}
+                    onValueChange={(v) => setFilterEnabled(v === "on")}
+                  >
+                    <SelectTrigger className="w-full rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="off">关闭</SelectItem>
+                      <SelectItem value="on">开启</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="font-medium mb-1 block">滤波窗口</label>
+                  <Input
+                    type="number"
+                    step={1}
+                    min={1}
+                    value={filterWindow}
+                    onChange={(e) => setFilterWindow(+e.target.value)}
+                  />
+                </div>
+              </div>
 
-            {/* 低通滤波 */}
-            <div className="grid grid-cols-2 gap-4">
+              {/* Interpolation */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-1">
+                  <label className="font-medium mb-1 block">插值方法</label>
+                  <Select value={interpMethod} onValueChange={setInterpMethod}>
+                    <SelectTrigger className="w-full rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">无</SelectItem>
+                      <SelectItem value="linear">线性</SelectItem>
+                      <SelectItem value="catmull">Catmull‑Rom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="font-medium mb-1 block">密度 (点/mm)</label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={density}
+                    onChange={(e) => setDensity(+e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* 坐标变换 */}
+              <details className="rounded-xl border p-4">
+                <summary className="font-medium cursor-pointer">
+                  坐标变换与 Z‑W 关系
+                </summary>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <InputField label="X 偏移" value={xOff} setValue={setXOff} />
+                  <InputField label="Y 偏移" value={yOff} setValue={setYOff} />
+                  <InputField
+                    label="缩放"
+                    value={scale}
+                    step={0.01}
+                    setValue={setScale}
+                  />
+                  <InputField
+                    label="Z(min) w=0"
+                    value={zMin}
+                    setValue={setZMin}
+                    step={0.01}
+                  />
+                  <InputField
+                    label="Z(max) w=max"
+                    value={zMax}
+                    setValue={setZMax}
+                    step={0.01}
+                  />
+                  <InputField label="w 最大" value={wMax} setValue={setWMax} />
+                </div>
+              </details>
+
+              {/* G‑code blocks */}
+              <div className="grid gap-4">
+                <TextareaField
+                  label="起始 G‑Code"
+                  value={gStart}
+                  setValue={setGStart}
+                  rows={3}
+                />
+                <InputField
+                  label="笔落 Z"
+                  value={penDownZ}
+                  setValue={setPenDownZ}
+                  step={0.01}
+                />
+                <InputField
+                  label="笔起 Z"
+                  value={penUpZ}
+                  setValue={setPenUpZ}
+                  step={0.01}
+                />
+                <TextareaField
+                  label="结束 G‑Code"
+                  value={gEnd}
+                  setValue={setGEnd}
+                  rows={2}
+                />
+              </div>
+
+              {/* 显示模式 */}
               <div>
-                <label className="font-medium mb-1 block">低通滤波</label>
-                <Select value={filterEnabled ? "on" : "off"} onValueChange={v => setFilterEnabled(v === "on")}>
+                <label className="font-medium mb-1 block">显示模式</label>
+                <Select value={displayMode} onValueChange={setDisplayMode}>
                   <SelectTrigger className="w-full rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="off">关闭</SelectItem>
-                    <SelectItem value="on">开启</SelectItem>
+                    <SelectItem value="processed">预处理线条</SelectItem>
+                    <SelectItem value="gcode">G‑Code 路径</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="font-medium mb-1 block">滤波窗口</label>
-                <Input type="number" step={1} min={1} value={filterWindow} onChange={e => setFilterWindow(+e.target.value)} />
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-4 pt-2">
+                <Button
+                  variant="success"
+                  disabled={!hasPreview}
+                  onClick={handleSave}
+                >
+                  保存 G‑Code
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={!hasPreview}
+                  onClick={handleSend}
+                >
+                  发送到 API
+                </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Canvas */}
+          <div className="space-y-2">
+            <h2 className="text-xl font-medium">实时预览</h2>
+            <div
+              ref={wrapperRef}
+              className="border rounded-2xl shadow-inner bg-white dark:bg-neutral-800 overflow-auto h-[70vh]"
+            >
+              <canvas
+                ref={canvasRef}
+                width={800}
+                height={800}
+                className="block mx-auto"
+              />
             </div>
-
-            {/* Interpolation */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-1">
-                <label className="font-medium mb-1 block">插值方法</label>
-                <Select value={interpMethod} onValueChange={setInterpMethod}>
-                  <SelectTrigger className="w-full rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">无</SelectItem>
-                    <SelectItem value="linear">线性</SelectItem>
-                    <SelectItem value="catmull">Catmull‑Rom</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="font-medium mb-1 block">密度 (点/mm)</label>
-                <Input type="number" step="0.1" value={density} onChange={(e) => setDensity(+e.target.value)} />
-              </div>
-            </div>
-
-            {/* 坐标变换 */}
-            <details className="rounded-xl border p-4">
-              <summary className="font-medium cursor-pointer">坐标变换与 Z‑W 关系</summary>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <InputField label="X 偏移" value={xOff} setValue={setXOff} />
-                <InputField label="Y 偏移" value={yOff} setValue={setYOff} />
-                <InputField label="缩放" value={scale} step={0.01} setValue={setScale} />
-                <InputField label="Z(min) w=0" value={zMin} setValue={setZMin} step={0.01} />
-                <InputField label="Z(max) w=max" value={zMax} setValue={setZMax} step={0.01} />
-                <InputField label="w 最大" value={wMax} setValue={setWMax} />
-              </div>
-            </details>
-
-            {/* G‑code blocks */}
-            <div className="grid gap-4">
-              <TextareaField label="起始 G‑Code" value={gStart} setValue={setGStart} rows={3} />
-              <InputField label="笔落 Z" value={penDownZ} setValue={setPenDownZ} step={0.01} />
-              <InputField label="笔起 Z" value={penUpZ} setValue={setPenUpZ} step={0.01} />
-              <TextareaField label="结束 G‑Code" value={gEnd} setValue={setGEnd} rows={2} />
-            </div>
-
-            {/* 显示模式 */}
-            <div>
-              <label className="font-medium mb-1 block">显示模式</label>
-              <Select value={displayMode} onValueChange={setDisplayMode}>
-                <SelectTrigger className="w-full rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="processed">预处理线条</SelectItem>
-                  <SelectItem value="gcode">G‑Code 路径</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-wrap gap-4 pt-2">
-              <Button variant="success" disabled={!hasPreview} onClick={handleSave}>
-                保存 G‑Code
-              </Button>
-              <Button variant="secondary" disabled={!hasPreview} onClick={handleSend}>
-                发送到 API
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Canvas */}
-        <div className="space-y-2">
-          <h2 className="text-xl font-medium">实时预览</h2>
-          <div
-            ref={wrapperRef}
-            className="border rounded-2xl shadow-inner bg-white dark:bg-neutral-800 overflow-auto h-[70vh]"
-          >
-            <canvas ref={canvasRef} width={800} height={800} className="block mx-auto" />
+            <p className="text-sm text-neutral-500">滚轮缩放，拖拽平移</p>
           </div>
-          <p className="text-sm text-neutral-500">滚轮缩放，拖拽平移</p>
         </div>
       </div>
-    </div>
     </ThemeProvider>
   );
 }
@@ -474,7 +567,12 @@ function InputField({ label, value, setValue, step = 0.1 }) {
   return (
     <div>
       <label className="font-medium mb-1 block">{label}</label>
-      <Input type="number" step={step} value={value} onChange={(e) => setValue(+e.target.value)} />
+      <Input
+        type="number"
+        step={step}
+        value={value}
+        onChange={(e) => setValue(+e.target.value)}
+      />
     </div>
   );
 }
@@ -483,7 +581,11 @@ function TextareaField({ label, value, setValue, rows = 3 }) {
   return (
     <div>
       <label className="font-medium mb-1 block">{label}</label>
-      <Textarea rows={rows} value={value} onChange={(e) => setValue(e.target.value)} />
+      <Textarea
+        rows={rows}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+      />
     </div>
   );
 }
