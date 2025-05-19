@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { ModeToggle } from "@/components/mode-toggle";
+import { io } from 'socket.io-client'
 
 /**
  * JSON → G‑Code Converter (with Filtering & Display Mode)
@@ -53,6 +54,14 @@ export default function App() {
   const [hasPreview, setHasPreview] = useState(false);
 
   const [displayMode, setDisplayMode] = useState("processed"); // "processed" | "gcode"
+
+  /* ------------------------- Socket ------------------------- */
+  // const socket = io('http://localhost:3000')
+  // 只用 websocket，跳过 polling
+  const socket = io('http://localhost:3000', {
+    transports: ['websocket'],
+    path: '/socket.io',
+  })
 
   /* ----------------------- Canvas refs ----------------------- */
   const canvasRef = useRef(null);
@@ -249,21 +258,45 @@ export default function App() {
   );
 
   /* ------------------- 文件上传 ------------------- */
+  const loadRawStrokes = useCallback((data) => {
+    if (!Array.isArray(data)) {
+      console.warn("收到数据不是数组，无法加载笔画");
+      return;
+    }
+    setRawStrokes(data);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setHasPreview(false);
+  }, []);
+
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
       const txt = await file.text();
       const data = JSON.parse(txt);
-      if (!Array.isArray(data)) throw new Error("JSON 顶层应为数组");
-      setRawStrokes(data);
-      setZoom(1);
-      setPan({ x: 0, y: 0 });
-      setHasPreview(false);
+      loadRawStrokes(data);
     } catch (err) {
       alert("解析失败: " + err.message);
     }
   };
+
+  // 监听socket.io 事件
+  useEffect(() => {
+    socket.on("newData", (data) => {
+      console.log("Received data from server:", data);
+      // 假设服务端发的是 { strokes: [...] }
+      if (data.strokes) {
+        loadRawStrokes(data.strokes);
+      } else {
+        // 或者直接当作原始笔画数组
+        loadRawStrokes(data);
+      }
+    });
+    return () => {
+      socket.off("newData");
+    };
+  }, [loadRawStrokes]);
 
   /* ------------------- 保存 G‑Code ------------------- */
   const handleSave = () => {
