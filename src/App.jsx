@@ -67,7 +67,14 @@ export default function App() {
   const [displayMode, setDisplayMode] = useState("processed");
 
   /* ------------------------- Socket ------------------------- */
-  const socket = io("http://localhost:3000", {
+  // const socket = io("http://localhost:3000", {
+  //   transports: ["websocket"],
+  //   path: "/socket.io",
+  // });
+  // 单一 Socket.IO 客户端
+  const { hostname } = window.location;
+  console.log('Connecting to socket server at:', `http://${hostname}:3000`);
+  const socket = io(`http://${hostname}:3000`, {
     transports: ["websocket"],
     path: "/socket.io",
   });
