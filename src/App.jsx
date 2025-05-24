@@ -52,7 +52,7 @@ export default function App() {
   const [randomRotationVariance, setRandomRotationVariance] = useState(0); // Degrees^2
 
   /* ------------------------- State: Transformations & G-Code Params ------------------------- */
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0.2);
   const [zMin, setZMin] = useState(-0.4);
   const [zMax, setZMax] = useState(0.4);
 
@@ -65,6 +65,9 @@ export default function App() {
   const [gcode, setGcode] = useState("");
   const [hasPreview, setHasPreview] = useState(false);
   const [displayMode, setDisplayMode] = useState("processed");
+
+  const [feedrate00, setFeedrate00] = useState(4000);
+  const [feedrate01, setFeedrate01] = useState(3500);
 
   /* ------------------------- Socket ------------------------- */
   // const socket = io("http://localhost:3000", {
@@ -295,7 +298,7 @@ export default function App() {
   /* ------------------- G-code Generation ------------------- */
   const generateGcode = useCallback(
     (globallyTransformedStrokes) => {
-      const feed = 1000;
+      // const feed = 1000;
       let gc = gStart.replace(/\r?\n/g, "\n");
       globallyTransformedStrokes.forEach((stroke) => {
         if (!stroke || stroke.length === 0) return;
@@ -304,10 +307,10 @@ export default function App() {
           const Y_gcode = y.toFixed(3);
           const Z_gcode = (penDownZ + w2z(w)).toFixed(3);
           if (idx === 0) {
-            gc += `G00 X${X_gcode} Y${Y_gcode} F${feed}\n`;
-            gc += `G01 Z${Z_gcode} F${feed}\n`;
+            gc += `G00 X${X_gcode} Y${Y_gcode} F${feedrate00}\n`;
+            gc += `G01 Z${Z_gcode} F${feedrate01}\n`;
           } else {
-            gc += `G01 X${X_gcode} Y${Y_gcode} Z${Z_gcode} F${feed}\n`;
+            gc += `G01 X${X_gcode} Y${Y_gcode} Z${Z_gcode} F${feedrate01}\n`;
           }
         });
         gc += `G00 Z${penUpZ.toFixed(3)}\n`;
@@ -315,7 +318,7 @@ export default function App() {
       gc += gEnd.replace(/\r?\n/g, "\n");
       return gc;
     },
-    [gStart, gEnd, penDownZ, penUpZ, w2z]
+    [gStart, gEnd, penDownZ, penUpZ, w2z, feedrate01, feedrate00]
   );
 
   /* ------------------- Canvas Rendering ------------------- */
@@ -627,6 +630,8 @@ export default function App() {
                 <summary className="font-medium cursor-pointer text-sm">G-Code Prefix/Suffix</summary>
                 <TextareaField label="G‑Code Prefix" value={gStart} setValue={setGStart} rows={3} />
                 <TextareaField label="G‑Code Suffix" value={gEnd} setValue={setGEnd} rows={2} />
+                <InputFieldBare label="G00 Feed Rate" value={feedrate00} setValue={setFeedrate00} type="number" step={100} min={0} placeholder="G00 Feed Rate (mm/min)" />
+                <InputFieldBare label="G01 Feed Rate" value={feedrate01} setValue={setFeedrate01} type="number" step={100} min={0} placeholder="G01 Feed Rate (mm/min)" />
               </details>
 
               {/* Display Mode */}

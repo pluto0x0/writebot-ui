@@ -9,15 +9,38 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 
-// 单一 Socket.IO 客户端
 const { hostname } = window.location;
-console.log('Connecting to socket server at:', `http://${hostname}:3000`);
-const socket = io(`http://${hostname}:3000`, {
-  transports: ["websocket"],
-  path: "/socket.io",
-});
 
 export default function WriteInput() {
+  // socket.io 相关
+  const socketRef = useRef(null);
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    const socket = io(`http://${hostname}:3000`, {
+      transports: ["websocket"],
+      path: "/socket.io",
+    });
+    socketRef.current = socket;
+    // 初始状态
+    setConnected(socket.connected);
+    // 事件监听
+    function handleConnect() {
+      setConnected(true);
+    }
+    function handleDisconnect() {
+      setConnected(false);
+    }
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    // 卸载清理
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.disconnect();
+    };
+  }, []);
+
   // 画布 refs & ctx
   const canvasRef = useRef(null);
   const [ctx, setCtx] = useState(null);
@@ -174,16 +197,24 @@ export default function WriteInput() {
 
     try {
       setProgress(40);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300000);
       const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       setProgress(70);
       const result = await res.json();
+      console.log("Read from API:", result);
       setProgress(90);
 
-      socket.emit("submitData", result);
+      // 使用 socketRef.current.emit
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit("submitData", result);
+      }
       setProgress(100);
 
       setSamples([]);
@@ -206,6 +237,18 @@ export default function WriteInput() {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold">手写输入采集</h1>
           <ModeToggle />
+          <span
+            className={`ml-4 flex items-center text-sm ${
+              connected ? "text-green-500" : "text-red-500"
+            }`}
+          >
+            <span
+              className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                connected ? "bg-green-500" : "bg-red-500"
+              }`}
+            ></span>
+            {connected ? "已连接" : "未连接"}
+          </span>
         </div>
         <div className="flex space-x-8">
           {/* 左边：纵向堆叠 */}
