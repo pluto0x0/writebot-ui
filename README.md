@@ -29,3 +29,6 @@ Picture Cropping & Upload | `/shot`
 
 Run a Dummy Backend Server: `python payload/server.py`. View [this](/payload/stroke.json) file for API sepecifications.
 
+## License
+
+MIT
