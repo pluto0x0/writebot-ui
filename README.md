@@ -4,16 +4,28 @@ Web UI for WriteBot
 
 ## How to Run
 
+Install packages:
+
 ```bash
-npm install
-npm run dev
-node server.cjs # Run socket.io server
+$ npm install
 ```
+
+Run servers:
+
+```bash 
+$ npm run dev
+$ node server.cjs # Run socket.io server
+```
+
+2 servers should run in parallel.
 
 ## How to use Web UI
 
-G-code Editor: `http://host:ip/`
-  
-Write Pad: `http://host:ip/write`
+Page|Path
+---|---
+G-code Editor (root) | `/`
+Writing Pad | `/write`
+Picture Cropping & Upload | `/shot`
 
-Run a Dummy Backend Server: `python payload/server.py`
+Run a Dummy Backend Server: `python payload/server.py`. View [this](/payload/stroke.json) file for API sepecifications.
+
