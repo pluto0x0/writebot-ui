@@ -55,11 +55,17 @@ export default function PhotoInput() {
   const [samples, setSamples] = useState([]); // Array of {char, image (base64)}
   const [showCharPrompt, setShowCharPrompt] = useState(false);
   const [charInput, setCharInput] = useState("");
+  const [isComposing, setIsComposing] = useState(false); // 新增状态
 
   // API & 文本
-  const [apiUrl, setApiUrl] = useState(
-    () => localStorage.getItem("apiUrl") || ""
-  );
+  const [apiUrl, setApiUrl] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const apiFromUrl = params.get("api");
+    if (apiFromUrl) {
+      return apiFromUrl;
+    }
+    return localStorage.getItem("apiUrl") || "";
+  });
   const [customText, setCustomText] = useState("");
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -515,10 +521,35 @@ export default function PhotoInput() {
                   <Input
                     id="char-input-popup"
                     value={charInput}
-                    onChange={(e) => setCharInput(e.target.value.slice(0, 1))} // Allow only one char
-                    maxLength={1}
+                    onChange={(e) => {
+                      const { value } = e.target;
+                      if (isComposing) {
+                        // 在组字过程中，允许输入法自由更新输入框内容
+                        setCharInput(value);
+                      } else {
+                        // 非组字过程，或组字已结束，则截取第一个字符
+                        setCharInput(value.slice(0, 1));
+                      }
+                    }}
+                    onCompositionStart={() => setIsComposing(true)}
+                    onCompositionEnd={(e) => {
+                      setIsComposing(false);
+                      // 组字结束后，确保输入框内容被截断为单个字符
+                      // event.data 通常是最终输入的字符，但 e.target.value 更可靠一些
+                      setCharInput(e.target.value.slice(0, 1));
+                    }}
+                    // maxLength={1} // 建议移除此属性，由JS逻辑控制
                     autoFocus
-                    onKeyDown={(e) => e.key === "Enter" && handleSaveChar()}
+                    onKeyDown={(e) => {
+                      // 防止在组字过程中按 Enter 键触发保存
+                      if (
+                        e.key === "Enter" &&
+                        !isComposing &&
+                        charInput.trim()
+                      ) {
+                        handleSaveChar();
+                      }
+                    }}
                   />
                   <div className="flex justify-end space-x-2">
                     <Button
