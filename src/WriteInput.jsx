@@ -235,7 +235,7 @@ export default function WriteInput() {
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <div className="min-h-screen bg-gradient-to-br from-sky-50 to-emerald-50 dark:from-neutral-900 dark:to-neutral-800 p-6 text-neutral-900 dark:text-neutral-100 overflow-hidden">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-3xl font-bold">手写输入采集</h1>
+          <h1 className="text-3xl font-bold">Written Characters Upload</h1>
           <ModeToggle />
           <span
             className={`ml-4 flex items-center text-sm ${
@@ -247,7 +247,7 @@ export default function WriteInput() {
                 connected ? "bg-green-500" : "bg-red-500"
               }`}
             ></span>
-            {connected ? "已连接" : "未连接"}
+            {connected ? "Connected" : "Disconnected"}
           </span>
         </div>
         <div className="flex space-x-8">
@@ -270,7 +270,7 @@ export default function WriteInput() {
                   disabled={drawing || showCharPrompt}
                   onClick={() => setShowCharPrompt(true)}
                 >
-                  完成此字
+                  Done
                 </Button>
               </CardContent>
             </Card>
@@ -279,14 +279,14 @@ export default function WriteInput() {
             {showCharPrompt && (
               <Card className="max-w-sm mx-auto mt-6">
                 <CardContent className="space-y-3">
-                  <Label>请输入该字对应的字符</Label>
+                  <Label>Please type the corresponding character</Label>
                   <Input
                     value={charInput}
                     onChange={(e) => setCharInput(e.target.value)}
                     maxLength={1}
                   />
                   <div className="flex justify-end">
-                    <Button onClick={handleSaveChar}>保存</Button>
+                    <Button onClick={handleSaveChar}>Save</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -297,7 +297,7 @@ export default function WriteInput() {
               <Card className="w-full mx-auto mt-6 space-y-3">
                 <CardContent className="space-y-4">
                   <div>
-                    <Label>API 地址</Label>
+                    <Label>API address</Label>
                     <Input
                       placeholder="https://your.api/endpoint"
                       value={apiUrl}
@@ -306,7 +306,7 @@ export default function WriteInput() {
                     />
                   </div>
                   <div>
-                    <Label>自定义文本</Label>
+                    <Label>Custom Text</Label>
                     <Textarea
                       placeholder="请输入要分析的文本"
                       value={customText}
@@ -321,7 +321,7 @@ export default function WriteInput() {
                       onClick={handleSubmitAll}
                       disabled={isBusy}
                     >
-                      提交并生成
+                      Submit and Generate
                     </Button>
                   </div>
                 </CardContent>
@@ -331,7 +331,7 @@ export default function WriteInput() {
 
           {/* 右边：缩略图列表 */}
           <div className="flex-1 overflow-auto space-y-4">
-            <h2 className="text-xl font-medium">已采集 ({samples.length}/4)</h2>
+            <h2 className="text-xl font-medium">Collected ({samples.length}/4)</h2>
             <ul className="grid grid-cols-2 gap-4">
               {samples.map((s, i) => (
                 <li key={i} className="flex items-center space-x-2">
