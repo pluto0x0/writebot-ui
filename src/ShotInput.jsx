@@ -17,7 +17,8 @@ export default function PhotoInput() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const socket = io(`http://${hostname}:3000`, { // Ensure protocol is included
+    const socket = io(`http://${hostname}:3000`, {
+      // Ensure protocol is included
       transports: ["websocket"],
       path: "/socket.io",
     });
@@ -67,7 +68,8 @@ export default function PhotoInput() {
   useEffect(() => {
     const canvas = imageCanvasRef.current;
     if (!canvas) return;
-    if (!imageElement) { // If no image is loaded, show placeholder
+    if (!imageElement) {
+      // If no image is loaded, show placeholder
       canvas.width = 500;
       canvas.height = 200; // Adjusted placeholder height
       const context = canvas.getContext("2d");
@@ -95,7 +97,7 @@ export default function PhotoInput() {
   useEffect(() => {
     const canvas = imageCanvasRef.current;
     if (!canvas || !imageElement) return; // Only draw if there's an image
-    
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -107,7 +109,12 @@ export default function PhotoInput() {
     definedCrops.forEach((crop) => {
       ctx.strokeStyle = "blue";
       ctx.lineWidth = 2;
-      ctx.strokeRect(crop.rect.x, crop.rect.y, crop.rect.width, crop.rect.height);
+      ctx.strokeRect(
+        crop.rect.x,
+        crop.rect.y,
+        crop.rect.width,
+        crop.rect.height
+      );
       if (crop.char) {
         const textX = crop.rect.x + 5;
         const textY = crop.rect.y + 15;
@@ -133,7 +140,6 @@ export default function PhotoInput() {
     }
   }, [imageElement, definedCrops, currentCrop, isCroppingActive]);
 
-
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -144,7 +150,7 @@ export default function PhotoInput() {
           setImageElement(img);
           setUploadedImage(e.target.result); // Save data URL
           setCropStage(1); // Start cropping for the first character
-          
+
           const canvas = imageCanvasRef.current;
           const MAX_WIDTH = 500; // Max display width for canvas
           let { naturalWidth, naturalHeight } = img;
@@ -156,7 +162,7 @@ export default function PhotoInput() {
             displayWidth = MAX_WIDTH;
           }
           // Could also add MAX_HEIGHT constraint if needed
-          
+
           canvas.width = displayWidth;
           canvas.height = displayHeight;
           // Redraw will be handled by the useEffect hook for [imageElement]
@@ -174,27 +180,63 @@ export default function PhotoInput() {
   };
 
   const handlePointerDown = (e) => {
-    if (!imageElement || cropStage === 0 || cropStage > 4 || showCharPrompt) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    if (!imageElement || cropStage === 0 || cropStage > 4 || showCharPrompt)
+      return;
+
+    const canvas = imageCanvasRef.current; // Get the canvas element
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect(); // Dimensions and position of the CSS-styled canvas element
+
+    // Calculate scaling factors
+    // scale = canvas_internal_resolution / canvas_displayed_size
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    // Get pointer position relative to the viewport
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    // Calculate pointer position relative to the canvas element (displayed)
+    // And then scale it to the canvas's internal coordinate system
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+
     setCurrentCrop({ startX: x, startY: y, endX: x, endY: y });
     setIsCroppingActive(true);
   };
 
   const handlePointerMove = (e) => {
     if (!isCroppingActive || !currentCrop) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+
+    const canvas = imageCanvasRef.current; // Get the canvas element
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+
+    // Calculate scaling factors
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    // Get pointer position relative to the viewport
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    // Calculate pointer position relative to the canvas element (displayed)
+    // And then scale it to the canvas's internal coordinate system
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+
     setCurrentCrop((prev) => ({ ...prev, endX: x, endY: y }));
     // Redraw is handled by useEffect
   };
 
   const handlePointerUp = () => {
+    // No event argument needed here as currentCrop is already scaled
     if (!isCroppingActive || !currentCrop) return;
     setIsCroppingActive(false);
 
+    // The currentCrop values are already scaled, so normRect is also scaled correctly
     const normRect = {
       x: Math.min(currentCrop.startX, currentCrop.endX),
       y: Math.min(currentCrop.startY, currentCrop.endY),
@@ -202,16 +244,15 @@ export default function PhotoInput() {
       height: Math.abs(currentCrop.startY - currentCrop.endY),
     };
 
-    if (normRect.width > 5 && normRect.height > 5) { // Minimum crop size
-      // Current crop is finalized (geometry-wise), store it temporarily or pass to prompt
-      // The actual saving of the crop with char happens in handleSaveChar
-      setShowCharPrompt(true); 
+    if (normRect.width > 5 && normRect.height > 5) {
+      // Minimum crop size
+      setShowCharPrompt(true);
     } else {
       setCurrentCrop(null); // Discard tiny/invalid crop
     }
     // Redraw is handled by useEffect
   };
-  
+
   // New function to crop from the original image and resize to 128x128
   function cropAndResizeImage(sourceImageElement, canvasCropRect) {
     if (!sourceImageElement || !canvasCropRect) return null;
@@ -257,17 +298,18 @@ export default function PhotoInput() {
 
     // Finalize rectangle from currentCrop (which was set on pointer up)
     const finalRect = {
-        x: Math.min(currentCrop.startX, currentCrop.endX),
-        y: Math.min(currentCrop.startY, currentCrop.endY),
-        width: Math.abs(currentCrop.startX - currentCrop.endX),
-        height: Math.abs(currentCrop.startY - currentCrop.endY),
+      x: Math.min(currentCrop.startX, currentCrop.endX),
+      y: Math.min(currentCrop.startY, currentCrop.endY),
+      width: Math.abs(currentCrop.startX - currentCrop.endX),
+      height: Math.abs(currentCrop.startY - currentCrop.endY),
     };
-    
-    if (finalRect.width <= 5 || finalRect.height <= 5) { // Check again
-        setShowCharPrompt(false);
-        setCharInput("");
-        setCurrentCrop(null);
-        return;
+
+    if (finalRect.width <= 5 || finalRect.height <= 5) {
+      // Check again
+      setShowCharPrompt(false);
+      setCharInput("");
+      setCurrentCrop(null);
+      return;
     }
 
     const croppedImageB64 = cropAndResizeImage(imageElement, finalRect);
@@ -275,7 +317,10 @@ export default function PhotoInput() {
     if (croppedImageB64) {
       const newSample = { char: charInput.trim(), image: croppedImageB64 };
       setSamples((s) => [...s, newSample]);
-      setDefinedCrops((prev) => [...prev, { rect: finalRect, char: charInput.trim() }]);
+      setDefinedCrops((prev) => [
+        ...prev,
+        { rect: finalRect, char: charInput.trim() },
+      ]);
     }
 
     setCharInput("");
@@ -309,8 +354,12 @@ export default function PhotoInput() {
 
   const allDone = samples.length >= 4;
   const isApiSectionDisabled = sending || !allDone;
-  const canUserCrop = imageElement && cropStage > 0 && cropStage <= 4 && !showCharPrompt && !sending;
-
+  const canUserCrop =
+    imageElement &&
+    cropStage > 0 &&
+    cropStage <= 4 &&
+    !showCharPrompt &&
+    !sending;
 
   const handleSubmitAll = async () => {
     if (!allDone || !apiUrl.trim() || !customText.trim() || sending) return;
@@ -348,8 +397,7 @@ export default function PhotoInput() {
       setProgress(100);
 
       // Reset after successful submission
-      handleClearAll(); 
-
+      handleClearAll();
     } catch (err) {
       console.error("Error during submission:", err);
       // Handle error display to user if necessary
@@ -362,7 +410,7 @@ export default function PhotoInput() {
       }
     }
   };
-  
+
   let instructionText = "Upload an image to begin.";
   if (imageElement) {
     if (cropStage > 0 && cropStage <= 4) {
@@ -371,10 +419,10 @@ export default function PhotoInput() {
         instructionText = `Label the selected area for character ${cropStage}.`;
       }
     } else if (cropStage === 5 || allDone) {
-      instructionText = "All 4 characters defined. You can now enter API details and submit.";
+      instructionText =
+        "All 4 characters defined. You can now enter API details and submit.";
     }
   }
-
 
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
@@ -404,7 +452,10 @@ export default function PhotoInput() {
             <Card>
               <CardContent className="p-4 space-y-3">
                 {!imageElement && (
-                  <Button onClick={() => fileInputRef.current?.click()} className="w-full">
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full"
+                  >
                     Upload Image
                   </Button>
                 )}
@@ -416,22 +467,37 @@ export default function PhotoInput() {
                   className="hidden"
                   disabled={sending}
                 />
-                
+
                 {/* Canvas for image display and cropping */}
                 <canvas
                   ref={imageCanvasRef}
-                  className={`border rounded-md touch-none ${!imageElement ? 'bg-gray-200 dark:bg-gray-700' : 'cursor-crosshair'} w-full`}
+                  className={`border rounded-md touch-none ${
+                    !imageElement
+                      ? "bg-gray-200 dark:bg-gray-700"
+                      : "cursor-crosshair"
+                  } w-full`}
                   // width & height are set dynamically
                   onPointerDown={canUserCrop ? handlePointerDown : undefined}
-                  onPointerMove={isCroppingActive ? handlePointerMove : undefined}
+                  onPointerMove={
+                    isCroppingActive ? handlePointerMove : undefined
+                  }
                   onPointerUp={isCroppingActive ? handlePointerUp : undefined}
-                  onPointerLeave={isCroppingActive ? handlePointerUp : undefined} // Finalize if pointer leaves
+                  onPointerLeave={
+                    isCroppingActive ? handlePointerUp : undefined
+                  } // Finalize if pointer leaves
                 />
 
                 {imageElement && (
                   <div className="flex justify-between items-center mt-2">
-                    <p className="text-sm text-muted-foreground">{instructionText}</p>
-                    <Button onClick={handleClearAll} variant="outline" size="sm" disabled={sending}>
+                    <p className="text-sm text-muted-foreground">
+                      {instructionText}
+                    </p>
+                    <Button
+                      onClick={handleClearAll}
+                      variant="outline"
+                      size="sm"
+                      disabled={sending}
+                    >
                       Clear & Restart
                     </Button>
                   </div>
@@ -443,24 +509,48 @@ export default function PhotoInput() {
             {showCharPrompt && (
               <Card className="fixed inset-0 m-auto w-fit h-fit max-w-sm p-6 bg-background border shadow-lg rounded-lg z-50">
                 <CardContent className="space-y-4">
-                  <Label htmlFor="char-input-popup">Enter the character for the selected area ({cropStage}/4)</Label>
+                  <Label htmlFor="char-input-popup">
+                    Enter the character for the selected area ({cropStage}/4)
+                  </Label>
                   <Input
                     id="char-input-popup"
                     value={charInput}
-                    onChange={(e) => setCharInput(e.target.value.slice(0,1))} // Allow only one char
+                    onChange={(e) => setCharInput(e.target.value.slice(0, 1))} // Allow only one char
                     maxLength={1}
                     autoFocus
-                    onKeyDown={(e) => e.key === 'Enter' && handleSaveChar()}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveChar()}
                   />
                   <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={() => {setShowCharPrompt(false); setCharInput(""); setCurrentCrop(null);}}>Cancel</Button>
-                    <Button onClick={handleSaveChar} disabled={!charInput.trim()}>Save Character</Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowCharPrompt(false);
+                        setCharInput("");
+                        setCurrentCrop(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSaveChar}
+                      disabled={!charInput.trim()}
+                    >
+                      Save Character
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
             )}
-             {showCharPrompt && <div className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm" onClick={() => {setShowCharPrompt(false); setCharInput(""); setCurrentCrop(null);}} />}
-
+            {showCharPrompt && (
+              <div
+                className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm"
+                onClick={() => {
+                  setShowCharPrompt(false);
+                  setCharInput("");
+                  setCurrentCrop(null);
+                }}
+              />
+            )}
 
             {/* API & Text Input (appears when all 4 chars are collected) */}
             {allDone && (
@@ -477,7 +567,9 @@ export default function PhotoInput() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="custom-text">Custom Text for Analysis</Label>
+                    <Label htmlFor="custom-text">
+                      Custom Text for Analysis
+                    </Label>
                     <Textarea
                       id="custom-text"
                       placeholder="Enter the text related to the characters"
@@ -486,12 +578,19 @@ export default function PhotoInput() {
                       disabled={isApiSectionDisabled || sending}
                     />
                   </div>
-                  {sending && <Progress value={progress} max={100} className="w-full" />}
+                  {sending && (
+                    <Progress value={progress} max={100} className="w-full" />
+                  )}
                   <div className="flex justify-end">
                     <Button
                       variant="default" // Assuming 'primary' was a custom variant, using 'default'
                       onClick={handleSubmitAll}
-                      disabled={isApiSectionDisabled || sending || !customText.trim() || !apiUrl.trim()}
+                      disabled={
+                        isApiSectionDisabled ||
+                        sending ||
+                        !customText.trim() ||
+                        !apiUrl.trim()
+                      }
                     >
                       {sending ? "Submitting..." : "Submit All & Generate"}
                     </Button>
@@ -507,10 +606,14 @@ export default function PhotoInput() {
               Collected Characters ({samples.length}/4)
             </h2>
             {samples.length === 0 && !imageElement && (
-                <p className="text-muted-foreground">Upload an image and crop characters. They will appear here.</p>
+              <p className="text-muted-foreground">
+                Upload an image and crop characters. They will appear here.
+              </p>
             )}
-            {samples.length === 0 && imageElement && cropStage < 5 &&(
-                 <p className="text-muted-foreground">Begin cropping characters from the uploaded image.</p>
+            {samples.length === 0 && imageElement && cropStage < 5 && (
+              <p className="text-muted-foreground">
+                Begin cropping characters from the uploaded image.
+              </p>
             )}
             <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {samples.map((s, i) => (
@@ -529,8 +632,11 @@ export default function PhotoInput() {
                 </li>
               ))}
             </ul>
-             {samples.length > 0 && samples.length < 4 && (
-                <p className="text-sm text-muted-foreground"> {4-samples.length} more character(s) needed.</p>
+            {samples.length > 0 && samples.length < 4 && (
+              <p className="text-sm text-muted-foreground">
+                {" "}
+                {4 - samples.length} more character(s) needed.
+              </p>
             )}
           </div>
         </div>
