@@ -29,12 +29,17 @@ jobs:
       
       - name: Compile Typst files
         run: |
-          for file in source/*.typ; do
-            if [ -f "$file" ]; then
-              filename=$(basename "$file" .typ)
-              echo "Compiling $file to pdf/${filename}.pdf"
-              typst compile "$file" "pdf/${filename}.pdf"
-            fi
+          find source -name '*.typ' -type f | while read -r file; do
+            # Get relative path from source/ and change extension
+            relative_path="${file#source/}"
+            filename="${relative_path%.typ}"
+            output_path="pdf/${filename}.pdf"
+            
+            # Create directory structure in pdf/
+            mkdir -p "$(dirname "$output_path")"
+            
+            echo "Compiling $file to $output_path"
+            typst compile "$file" "$output_path"
           done
       
       - name: Directory Listing
