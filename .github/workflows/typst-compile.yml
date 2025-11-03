@@ -1,0 +1,56 @@
+name: Compile Typst to PDF
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'source/**/*.typ'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  compile-typst:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Typst
+        uses: typst-community/setup-typst@v3
+        with:
+          typst-version: 'latest'
+      
+      - name: Create pdf directory
+        run: mkdir -p pdf
+      
+      - name: Compile Typst files
+        run: |
+          for file in source/*.typ; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file" .typ)
+              echo "Compiling $file to pdf/${filename}.pdf"
+              typst compile "$file" "pdf/${filename}.pdf"
+            fi
+          done
+      
+      - name: Directory Listing
+        uses: gacts/directory-listing@v1.0.2
+        with:
+          directory: pdf
+          output-file: pdf/index.html
+      
+      - name: Commit and push PDFs
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add pdf/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Auto-compile Typst files to PDF"
+            git push
+          fi
